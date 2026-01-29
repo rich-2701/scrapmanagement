@@ -2590,6 +2590,7 @@ export const ScrapInvoice: React.FC = () => {
                                                         <option value="KG">KG</option>
                                                         <option value="SHEET">SHEET</option>
                                                         <option value="PCS">PCS</option>
+                                                        <option value="EACH">EACH</option>
                                                         <option value="Per Unit">Per Unit</option>
                                                         <option value="1000 Unit">1000 Unit</option>
                                                         <option value="100 Unit">100 Unit</option>

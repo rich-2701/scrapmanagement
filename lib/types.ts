@@ -13,7 +13,8 @@ export enum Unit {
     METER = 'METER',
     PCS = 'PCS',
     LITRE = 'LITRE',
-    ROLL = 'ROLL'
+    ROLL = 'ROLL',
+    EACH = 'EACH'
 }
 
 export interface MaterialItem {

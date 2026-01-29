@@ -46,5 +46,6 @@ export const SCRAP_REASONS = [
   'Registration Error',
   'Damaged Raw Material',
   'Trimming Waste',
+  'Used',
   'Other'
 ];

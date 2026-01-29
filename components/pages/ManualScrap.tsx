@@ -99,9 +99,22 @@ export const ManualScrap: React.FC = () => {
         }
     };
 
-    // Show all items if search is empty, otherwise filter
+    // Filter out items where IsScrap === 1 (scrap items by nature), keep all other items
+    // Note: Backend API must include IsScrap field in response for this filter to work
+    const nonScrapMaterials = allMaterials.filter(i => {
+        // Check for IsScrap = 1 in various formats (number, string, boolean)
+        const isScrapFlag = i.IsScrap ?? i.isScrap;
+        // If IsScrap field is not present (undefined), show the item
+        if (isScrapFlag === undefined || isScrapFlag === null) {
+            return true;
+        }
+        // Only hide items where IsScrap is explicitly 1
+        return isScrapFlag !== 1 && isScrapFlag !== '1' && isScrapFlag !== true;
+    });
+
+    // Show all non-scrap items if search is empty, otherwise filter by search
     const filteredItems = search
-        ? allMaterials.filter(i => {
+        ? nonScrapMaterials.filter(i => {
             const itemName = (i.name || i.itemName || '').toLowerCase();
             const itemCode = (i.code || i.itemCode || '').toLowerCase();
             const itemGroup = (i.itemGroup || '').toLowerCase();
@@ -111,7 +124,7 @@ export const ManualScrap: React.FC = () => {
                 itemCode.includes(searchLower) ||
                 itemGroup.includes(searchLower);
         })
-        : allMaterials;
+        : nonScrapMaterials;
 
     // Calculate weight for paper items when unit is SHEET
     const calculateWeight = () => {
