@@ -60,7 +60,13 @@ export const ManualScrap: React.FC = () => {
             const { scrapApi } = await import('@/lib/api');
             const result = await scrapApi.getMaterials();
 
+            // Log debug information to help diagnose material filtering issues
             if (result.success && result.data) {
+                console.log('📦 Materials API Debug Info:', {
+                    totalMaterials: Array.isArray(result.data) ? result.data.length : 0,
+                    debug: (result as any).debug,
+                    sampleMaterial: Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : null
+                });
                 setAllMaterials(Array.isArray(result.data) ? result.data : []);
             } else {
                 setError('Failed to load materials');

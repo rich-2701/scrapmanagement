@@ -25,40 +25,61 @@ export const ScrapLedger: React.FC = () => {
     let rows: any[] = [];
 
     if (type === 'summary') {
-      headers = ['Material', 'Item Code', 'Group', 'Total IN', 'Total OUT', 'Balance', 'Unit'];
-      rows = data.map(item => [
-        `"${item.itemName?.replace(/"/g, '""') || ''}"`,
-        `"${item.itemCode || ''}"`,
-        `"${item.itemGroup || ''}"`,
-        item.totalReceipt || 0,
-        item.totalIssue || 0,
-        item.balance || 0,
-        item.stockUnit || ''
-      ]);
+      headers = ['Material', 'Item Code', 'Group', 'Total IN', 'Total IN (KG)', 'Total OUT', 'Total OUT (KG)', 'Balance', 'Balance (KG)', 'Unit', 'Created By'];
+      rows = data.map(item => {
+        const wtFactor = item.stockUnit?.toUpperCase() === 'PCS' ? (Number(item.wtPerPacking) || 0) : (item.stockUnit?.toUpperCase() === 'KG' ? 1 : 0);
+        return [
+          `"${item.itemName?.replace(/"/g, '""') || ''}"`,
+          `"${item.itemCode || ''}"`,
+          `"${item.itemGroup || ''}"`,
+          item.totalReceipt || 0,
+          wtFactor > 0 ? (item.totalReceipt * wtFactor).toFixed(3) : '0.000',
+          item.totalIssue || 0,
+          wtFactor > 0 ? (item.totalIssue * wtFactor).toFixed(3) : '0.000',
+          item.balance || 0,
+          wtFactor > 0 ? (item.balance * wtFactor).toFixed(3) : '0.000',
+          item.stockUnit || '',
+          `"${item.createdBy || 'Admin'}"`
+        ];
+      });
     } else if (type === 'stock') {
-      headers = ['Material', 'Code', 'Group', 'Total IN', 'Total OUT', 'Current Stock', 'Unit', 'Last Updated'];
-      rows = data.map(item => [
-        `"${item.itemName?.replace(/"/g, '""') || ''}"`,
-        `"${item.itemCode || ''}"`,
-        `"${item.itemGroup || ''}"`,
-        item.totalReceipt || 0,
-        item.totalIssue || 0,
-        item.balance || 0,
-        item.stockUnit || '',
-        itemLastUpdates[item.itemId] ? new Date(itemLastUpdates[item.itemId]).toLocaleDateString() : 'No transactions'
-      ]);
+      headers = ['Material', 'Code', 'Group', 'Total IN', 'Total IN (KG)', 'Total OUT', 'Total OUT (KG)', 'Current Stock', 'Current Stock (KG)', 'Unit', 'Created By', 'Last Updated'];
+      rows = data.map(item => {
+        const wtFactor = item.stockUnit?.toUpperCase() === 'PCS' ? (Number(item.wtPerPacking) || 0) : (item.stockUnit?.toUpperCase() === 'KG' ? 1 : 0);
+        return [
+          `"${item.itemName?.replace(/"/g, '""') || ''}"`,
+          `"${item.itemCode || ''}"`,
+          `"${item.itemGroup || ''}"`,
+          item.totalReceipt || 0,
+          wtFactor > 0 ? (item.totalReceipt * wtFactor).toFixed(3) : '0.000',
+          item.totalIssue || 0,
+          wtFactor > 0 ? (item.totalIssue * wtFactor).toFixed(3) : '0.000',
+          item.balance || 0,
+          wtFactor > 0 ? (item.balance * wtFactor).toFixed(3) : '0.000',
+          item.stockUnit || '',
+          `"${item.createdBy || 'Admin'}"`,
+          itemLastUpdates[item.itemId] ? new Date(itemLastUpdates[item.itemId]).toLocaleDateString() : 'No transactions'
+        ];
+      });
     } else {
-      headers = ['Date', 'Voucher Number', 'Type', 'IN Qty', 'OUT Qty', 'Sale Amount', 'Balance', 'Remark'];
-      rows = data.map(item => [
-        item.voucherDate ? new Date(item.voucherDate).toLocaleString() : '',
-        `"${item.voucherNumber || ''}"`,
-        item.transactionType || '',
-        item.receiptQuantity || 0,
-        item.issueQuantity || 0,
-        item.saleAmount || 0,
-        item.balance || 0,
-        `"${item.remark?.replace(/"/g, '""') || ''}"`
-      ]);
+      headers = ['Date', 'Voucher Number', 'Type', 'IN Qty', 'IN Wt (KG)', 'OUT Qty', 'OUT Wt (KG)', 'Sale Amount', 'Balance Qty', 'Balance Wt (KG)', 'Remark', 'Created By'];
+      rows = data.map(item => {
+        const wtFactor = item.stockUnit?.toUpperCase() === 'PCS' ? (Number(item.wtPerPacking) || 0) : (item.stockUnit?.toUpperCase() === 'KG' ? 1 : 0);
+        return [
+          item.voucherDate ? new Date(item.voucherDate).toLocaleString() : '',
+          `"${item.voucherNumber || ''}"`,
+          item.transactionType || '',
+          item.receiptQuantity || 0,
+          wtFactor > 0 ? (item.receiptQuantity * wtFactor).toFixed(3) : '0.000',
+          item.issueQuantity || 0,
+          wtFactor > 0 ? (item.issueQuantity * wtFactor).toFixed(3) : '0.000',
+          item.saleAmount || 0,
+          item.balance || 0,
+          wtFactor > 0 ? (item.balance * wtFactor).toFixed(3) : '0.000',
+          `"${item.remark?.replace(/"/g, '""') || ''}"`,
+          `"${item.createdBy || 'Admin'}"`
+        ];
+      });
     }
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -381,27 +402,27 @@ export const ScrapLedger: React.FC = () => {
               {/* Radio Button Toggle for Ledger Type - Moved before search */}
               {viewMode === 'summary' && (
                 <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="radio"
                       name="ledgerType"
                       value="sales"
                       checked={ledgerType === 'sales'}
                       onChange={(e) => setLedgerType(e.target.value as 'sales' | 'stock')}
-                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 accent-blue-600 focus:ring-0 focus:ring-offset-0 outline-none"
                     />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Sales Ledger</span>
+                    <span className={`text-sm font-medium transition-colors ${ledgerType === 'sales' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>Sales Ledger</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="radio"
                       name="ledgerType"
                       value="stock"
                       checked={ledgerType === 'stock'}
                       onChange={(e) => setLedgerType(e.target.value as 'sales' | 'stock')}
-                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 accent-blue-600 focus:ring-0 focus:ring-offset-0 outline-none"
                     />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Stock Ledger</span>
+                    <span className={`text-sm font-medium transition-colors ${ledgerType === 'stock' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'}`}>Stock Ledger</span>
                   </label>
                 </div>
               )}
@@ -566,7 +587,7 @@ export const ScrapLedger: React.FC = () => {
                             </div>
                           </td>
                           <td className="p-4 text-sm text-slate-600 dark:text-slate-400">
-                            {typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('scrap_user_data') || '{}')?.Username || 'Admin' : 'Admin'}
+                            {item.createdBy || 'Admin'}
                           </td>
                           <td className="p-4">
                             <button

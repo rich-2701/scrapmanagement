@@ -152,12 +152,12 @@ export const ProductionScrap: React.FC = () => {
             const companyUser = localStorage.getItem('scrap_company_user');
             const companyPass = localStorage.getItem('scrap_company_pass');
             const userName = localStorage.getItem('scrap_user_name');
-            const userPass = localStorage.getItem('scrap_user_pass');
 
-            if (companyUser && companyPass && userName && userPass) {
+            if (companyUser && companyPass && userName) {
                 setIsAuthenticated(true);
             } else {
                 // Redirect to login if not authenticated
+                console.warn('Authentication check failed in ProductionScrap. Missing credentials.');
                 router.push('/login');
             }
         }

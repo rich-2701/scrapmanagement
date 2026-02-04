@@ -38,42 +38,73 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, headerActi
     useEffect(() => {
         const fetchProductionUnits = async () => {
             try {
-                const userName = localStorage.getItem('scrap_user_name');
+                // Use authApi which automatically handles UserID header from localStorage
+                const result = await authApi.getProductionUnits();
 
-                // Use authApi which automatically handles headers for ValidateScrap
-                const result = await authApi.getProductionUnits(userName || undefined);
+                console.log('Production Units API Response:', result);
 
-                if (result.success && result.data) {
-                    setProductionUnits(result.data as any[]);
+                if (result.success && result.data && Array.isArray(result.data)) {
+                    const units = result.data as any[];
+                    console.log('Production Units Data:', units);
+
+                    // Normalize the data to handle both PascalCase and camelCase
+                    const normalizedUnits = units.map(u => ({
+                        productionUnitId: u.productionUnitId || u.productionUnitID || u.ProductionUnitID,
+                        productionUnitName: u.productionUnitName || u.ProductionUnitName,
+                        companyId: u.companyId || u.companyID || u.CompanyID,
+                        companyName: u.companyName || u.CompanyName,
+                        userId: u.userId || u.userID || u.UserID
+                    }));
+
+                    console.log('Normalized Production Units:', normalizedUnits);
+
+                    // Filter out any units with null/undefined IDs
+                    const validUnits = normalizedUnits.filter(u => u && u.productionUnitId != null);
+
+                    if (validUnits.length === 0) {
+                        console.warn('No valid production units found');
+                        setProductionUnits([]);
+                        return;
+                    }
+
+                    console.log('Valid Production Units:', validUnits);
+                    setProductionUnits(validUnits);
 
                     // Load selected production unit from local storage first (persistent)
                     const savedUnit = localStorage.getItem('selectedProductionUnitId');
                     if (savedUnit) {
                         setSelectedProductionUnit(savedUnit);
-                    } else if ((result.data as any[]).length > 0) {
+                    } else if (validUnits.length > 0) {
                         // Use user's assigned production unit from login as default
                         const userAssignedUnitId = localStorage.getItem('scrap_production_unit_id');
-                        const units = result.data as any[];
 
-                        let defaultUnitId = units[0].productionUnitId.toString();
-                        let defaultUnitName = units[0].productionUnitName;
+                        let defaultUnitId = validUnits[0].productionUnitId?.toString() || '';
+                        let defaultUnitName = validUnits[0].productionUnitName || '';
 
                         // Check if user's assigned unit exists in the list
                         if (userAssignedUnitId) {
-                            const userUnit = units.find((u: any) => u.productionUnitId.toString() === userAssignedUnitId);
-                            if (userUnit) {
+                            const userUnit = validUnits.find((u: any) =>
+                                u.productionUnitId?.toString() === userAssignedUnitId
+                            );
+                            if (userUnit && userUnit.productionUnitId) {
                                 defaultUnitId = userUnit.productionUnitId.toString();
-                                defaultUnitName = userUnit.productionUnitName;
+                                defaultUnitName = userUnit.productionUnitName || '';
                             }
                         }
 
-                        setSelectedProductionUnit(defaultUnitId);
-                        localStorage.setItem('selectedProductionUnitId', defaultUnitId);
-                        localStorage.setItem('selectedProductionUnitName', defaultUnitName);
+                        if (defaultUnitId) {
+                            setSelectedProductionUnit(defaultUnitId);
+                            localStorage.setItem('selectedProductionUnitId', defaultUnitId);
+                            localStorage.setItem('selectedProductionUnitName', defaultUnitName);
+                        }
                     }
+                } else {
+                    console.warn('No production units data in response');
+                    setProductionUnits([]);
                 }
             } catch (error) {
                 console.error('Error fetching production units:', error);
+                setProductionUnits([]);
             }
         };
 
@@ -123,18 +154,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, headerActi
     };
 
     const handleLogout = () => {
-        // Clear localStorage
+        // Clear all localStorage items related to scrap management
         localStorage.removeItem('scrap_company_user');
         localStorage.removeItem('scrap_company_pass');
         localStorage.removeItem('scrap_company_data');
         localStorage.removeItem('scrap_user_name');
-        localStorage.removeItem('scrap_user_pass');
         localStorage.removeItem('scrap_user_data');
         localStorage.removeItem('scrap_auth_timestamp');
         localStorage.removeItem('scrap_user_id');
         localStorage.removeItem('scrap_company_id');
         localStorage.removeItem('scrap_production_unit_id');
         localStorage.removeItem('scrap_fyear');
+        localStorage.removeItem('selectedProductionUnitId');
+        localStorage.removeItem('selectedProductionUnitName');
+
+        // Clear sessionStorage as well
+        sessionStorage.clear();
 
         // Redirect to login
         router.push('/login');
@@ -268,7 +303,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, headerActi
                                 >
                                     <Building2 size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
                                     <span className="text-[10px] md:text-xs font-medium truncate max-w-[80px] md:max-w-[100px]">
-                                        {productionUnits.find(u => u.productionUnitId.toString() === selectedProductionUnit)?.productionUnitName || 'Select Unit'}
+                                        {productionUnits.find(u => u?.productionUnitId?.toString() === selectedProductionUnit)?.productionUnitName || 'Select Unit'}
                                     </span>
                                     <ChevronUp size={10} className={`text-slate-400 transition-transform flex-shrink-0 ${isProductionUnitMenuOpen ? 'rotate-180' : ''}`} />
                                 </button>
@@ -280,24 +315,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, headerActi
                                             <p className="text-xs font-bold text-slate-400 uppercase">Production Units</p>
                                         </div>
                                         <div className="max-h-64 overflow-y-auto p-1">
-                                            {productionUnits.map((unit) => (
-                                                <button
-                                                    key={unit.productionUnitId}
-                                                    onClick={() => handleProductionUnitChange(unit.productionUnitId.toString(), unit.productionUnitName)}
-                                                    className={`w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors ${selectedProductionUnit === unit.productionUnitId.toString()
-                                                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-                                                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                        }`}
-                                                >
-                                                    <div>
-                                                        <div className="font-medium">{unit.productionUnitName}</div>
-                                                        <div className="text-xs text-slate-500 dark:text-slate-400">{unit.companyName}</div>
-                                                    </div>
-                                                    {selectedProductionUnit === unit.productionUnitId.toString() && (
-                                                        <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                                                    )}
-                                                </button>
-                                            ))}
+                                            {productionUnits
+                                                .filter(unit => unit && unit.productionUnitId != null)
+                                                .map((unit) => (
+                                                    <button
+                                                        key={unit.productionUnitId}
+                                                        onClick={() => handleProductionUnitChange(unit.productionUnitId?.toString() || '', unit.productionUnitName || '')}
+                                                        className={`w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors ${selectedProductionUnit === unit.productionUnitId?.toString()
+                                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                            }`}
+                                                    >
+                                                        <div>
+                                                            <div className="font-medium">{unit.productionUnitName || 'Unknown'}</div>
+                                                            <div className="text-xs text-slate-500 dark:text-slate-400">{unit.companyName || ''}</div>
+                                                        </div>
+                                                        {selectedProductionUnit === unit.productionUnitId?.toString() && (
+                                                            <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                                                        )}
+                                                    </button>
+                                                ))}
                                         </div>
                                     </div>
                                 )}

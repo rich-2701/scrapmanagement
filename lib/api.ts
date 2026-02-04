@@ -26,7 +26,8 @@ class ApiClient {
                 ...(options.headers as Record<string, string>),
             };
 
-            // Automatically add company credentials from localStorage for session validation
+            // Company credentials needed for Basic Auth (ValidateScrap requirement)
+            // These are for database connection, not user authentication
             if (typeof window !== 'undefined') {
                 const companyUser = localStorage.getItem('scrap_company_user');
                 const companyPass = localStorage.getItem('scrap_company_pass');
@@ -252,12 +253,15 @@ export const authApi = {
 
     /**
      * Get production units for the logged-in user
+     * UserID is automatically sent via headers from localStorage
      */
-    getProductionUnits: async (username?: string) => {
-        const url = username
-            ? `/api/scrap/auth/production-units?username=${encodeURIComponent(username)}`
-            : '/api/scrap/auth/production-units';
-        return apiClient.get(url);
+    getProductionUnits: async () => {
+        // Log the UserID being sent for debugging
+        if (typeof window !== 'undefined') {
+            const userId = localStorage.getItem('scrap_user_id');
+            console.log('🔍 Calling getProductionUnits with UserID:', userId);
+        }
+        return apiClient.get('/api/scrap/auth/production-units');
     },
 
     /**

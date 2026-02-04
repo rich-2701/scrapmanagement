@@ -12,7 +12,9 @@ export const Login: React.FC = () => {
   const [companyData, setCompanyData] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalType, setModalType] = useState<'error' | 'success'>('error');
+  const [modalMessage, setModalMessage] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
   // Form States
   const [companyUser, setCompanyUser] = useState('');
@@ -23,6 +25,14 @@ export const Login: React.FC = () => {
   const handleCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!companyUser || !companyPass) {
+      setModalType('error');
+      setModalMessage('Please Enter Company ID and Access Key');
+      setShowModal(true);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -31,29 +41,30 @@ export const Login: React.FC = () => {
       if (result.success && result.data) {
         const companyData = result.data as any;
 
-        // Store company credentials in localStorage for session management
+        // Save company data
         localStorage.setItem('scrap_company_user', companyUser);
         localStorage.setItem('scrap_company_pass', companyPass);
         localStorage.setItem('scrap_company_data', JSON.stringify(companyData));
-
-        // Store in sessionStorage
-        sessionStorage.setItem('scrap_company_user', companyUser);
-        sessionStorage.setItem('scrap_company_pass', companyPass);
-        sessionStorage.setItem('scrap_company_data', JSON.stringify(companyData));
 
         setCompanyData({
           id: companyData.id,
           name: companyData.name,
           code: companyData.code
         });
-        setAuthStage('USER');
+
+        // Show success popup before moving to next stage
+        setModalType('success');
+        setModalMessage('Please Enter Username and Password');
+        setShowModal(true);
       } else {
-        setError('Invalid credentials please try again');
-        setShowErrorModal(true);
+        setModalType('error');
+        setModalMessage('Invalid Company ID or Access Key');
+        setShowModal(true);
       }
     } catch (err: any) {
-      setError('Invalid credentials please try again');
-      setShowErrorModal(true);
+      setModalType('error');
+      setModalMessage('Authentication failed. Please try again.');
+      setShowModal(true);
     } finally {
       setLoading(false);
     }
@@ -62,6 +73,14 @@ export const Login: React.FC = () => {
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!username || !password) {
+      setModalType('error');
+      setModalMessage('Please Enter Username and Password');
+      setShowModal(true);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -69,58 +88,63 @@ export const Login: React.FC = () => {
       const result = await authApi.authenticateUser(username, password, companyUser, companyPass);
 
       if (result.success && result.data) {
-        // Map backend response (Id, Username, Email, Role) to frontend format
         const userData = result.data as any;
 
-        // Store user credentials and data in localStorage for session management
         localStorage.setItem('scrap_user_name', username);
-        localStorage.setItem('scrap_user_pass', password);
         localStorage.setItem('scrap_user_data', JSON.stringify(userData));
         localStorage.setItem('scrap_user_id', userData.userId || userData.Id || '');
         localStorage.setItem('scrap_company_id', userData.companyId || '');
         localStorage.setItem('scrap_production_unit_id', userData.productionUnitId || '');
         localStorage.setItem('scrap_auth_timestamp', Date.now().toString());
 
-        // Store in sessionStorage as well
-        sessionStorage.setItem('scrap_user_name', username);
-        sessionStorage.setItem('scrap_user_pass', password);
-        sessionStorage.setItem('scrap_user_data', JSON.stringify(userData));
-        sessionStorage.setItem('scrap_user_id', userData.userId || userData.Id || '');
-        sessionStorage.setItem('scrap_company_id', userData.companyId || '');
-        sessionStorage.setItem('scrap_production_unit_id', userData.productionUnitId || '');
-        sessionStorage.setItem('scrap_auth_timestamp', Date.now().toString());
-
-        // Redirect to dashboard after successful login
         router.push('/');
       } else {
-        setError('Invalid credentials please try again');
-        setShowErrorModal(true);
+        setModalType('error');
+        setModalMessage('Invalid Username or Password');
+        setShowModal(true);
       }
     } catch (err: any) {
-      setError('Invalid credentials please try again');
-      setShowErrorModal(true);
+      setModalType('error');
+      setModalMessage('Login failed. Please check your network.');
+      setShowModal(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+    if (modalType === 'success') {
+      setAuthStage('USER');
     }
   };
 
   return (
     <>
       {/* Error Modal */}
-      {showErrorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+      {/* Multi-purpose Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-8 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-slate-100 dark:border-slate-800">
             <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <AlertCircle className="text-red-600" size={32} />
+              <div className={`w-20 h-20 ${modalType === 'success' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'} rounded-full flex items-center justify-center mb-6 ring-8 ${modalType === 'success' ? 'ring-green-50/50 dark:ring-green-900/10' : 'ring-red-50/50 dark:ring-red-900/10'}`}>
+                {modalType === 'success' ? (
+                  <ArrowRight className="text-green-500" size={40} />
+                ) : (
+                  <AlertCircle className="text-red-500" size={40} />
+                )}
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Authentication Failed</h3>
-              <p className="text-slate-600 mb-6">{error}</p>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
+                {modalType === 'success' ? 'Verified!' : 'Attention!'}
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed font-medium">
+                {modalMessage}
+              </p>
               <button
-                onClick={() => setShowErrorModal(false)}
-                className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200"
+                onClick={handleModalClose}
+                className={`w-full ${modalType === 'success' ? 'bg-blue-600' : 'bg-slate-900 dark:bg-white dark:text-slate-900'} text-white font-bold py-4 rounded-xl hover:opacity-90 active:scale-[0.97] transition-all shadow-xl shadow-slate-200 dark:shadow-none`}
               >
-                OK
+                {modalType === 'success' ? 'Proceed' : 'Continue'}
               </button>
             </div>
           </div>
@@ -170,7 +194,6 @@ export const Login: React.FC = () => {
                       onChange={(e) => setCompanyUser(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-blue-100 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-blue-200/50"
                       placeholder="e.g. printpack"
-                      required
                     />
                   </div>
                 </div>
@@ -184,7 +207,6 @@ export const Login: React.FC = () => {
                       onChange={(e) => setCompanyPass(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-blue-100 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-blue-200/50"
                       placeholder="••••••••"
-                      required
                     />
                   </div>
                 </div>
@@ -213,7 +235,6 @@ export const Login: React.FC = () => {
                       onChange={(e) => setUsername(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-blue-100 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-blue-200/50"
                       placeholder="e.g. admin"
-                      required
                     />
                   </div>
                 </div>
@@ -227,7 +248,6 @@ export const Login: React.FC = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-blue-100 bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-blue-200/50"
                       placeholder="••••••••"
-                      required
                     />
                   </div>
                 </div>
